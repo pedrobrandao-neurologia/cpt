@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conners' CPT - Teste de Desempenho Contínuo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Bibliotecas para exportação em PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .screen { display: none; }
+        .screen.active { display: flex; }
+        #stimulus { transition: opacity 0.1s ease-in-out; }
+        #feedback-border { transition: box-shadow 0.2s ease-out; }
+        .duration-btn:disabled { cursor: not-allowed; background-color: #475569; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 antialiased">
+
+    <div id="app" class="min-h-screen flex flex-col items-center justify-center p-4">
+
+        <!-- Tela 1: Configuração Inicial -->
+        <div id="setupScreen" class="screen active w-full max-w-lg text-center">
+            <div class="bg-slate-800 p-8 rounded-xl shadow-2xl">
+                <h1 class="text-3xl font-bold mb-2 text-cyan-400">Teste de Atenção (CPT)</h1>
+                <p class="text-slate-400 mb-6">Insira o ID do participante e escolha a duração.</p>
+                
+                <div class="mb-6">
+                    <label for="participantId" class="block mb-2 text-sm font-medium text-slate-300">ID do Participante</label>
+                    <input type="text" id="participantId" class="bg-slate-700 border border-slate-600 text-slate-200 text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block w-full p-2.5" placeholder="NOME_SOBRENOME_01" required>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    <button data-duration="3" class="duration-btn w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-lg text-lg transition-all duration-300 transform hover:scale-105" disabled>3 minutos</button>
+                    <button data-duration="6" class="duration-btn w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-lg text-lg transition-all duration-300 transform hover:scale-105" disabled>6 minutos</button>
+                    <button data-duration="14" class="duration-btn w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-all duration-300 transform hover:scale-105" disabled>14 minutos (Completo)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tela 2: Instruções -->
+        <div id="instructionsScreen" class="screen w-full max-w-2xl">
+            <div class="bg-slate-800 p-8 rounded-xl shadow-2xl">
+                 <h1 class="text-3xl font-bold mb-4 text-center text-cyan-400">Instruções</h1>
+                <p class="text-slate-300 text-center mb-6">Leia com atenção antes de começar.</p>
+                <div class="bg-slate-900 p-6 rounded-lg space-y-4">
+                    <div class="flex items-center gap-4 border-2 border-green-500 bg-green-500/10 p-4 rounded-lg">
+                        <div class="text-green-400 font-black text-2xl">A-W, Y-Z</div>
+                        <p><strong class="font-bold">PRESSIONE A BARRA DE ESPAÇO</strong> ou <strong class="font-bold">TOQUE NA TELA</strong> para todas as letras...</p>
+                    </div>
+                     <div class="flex items-center gap-4 border-2 border-red-500 bg-red-500/10 p-4 rounded-lg">
+                        <div class="text-red-400 font-black text-2xl">X</div>
+                        <p>...<strong class="font-bold">EXCETO a letra 'X'</strong>. Quando 'X' aparecer, <strong class="font-bold">NÃO FAÇA NADA</strong>.</p>
+                    </div>
+                </div>
+                <p class="text-center text-slate-400 mt-6 text-sm">Participante: <strong id="participantIdText" class="text-cyan-400"></strong> | Duração: <strong id="durationText" class="text-cyan-400"></strong>.</p>
+                <button id="startBtn" class="w-full mt-6 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-4 px-6 rounded-lg text-xl transition duration-300">
+                    Estou Pronto para Começar
+                </button>
+            </div>
+        </div>
+
+        <!-- Tela 3: Contagem Regressiva -->
+        <div id="countdownScreen" class="screen text-center">
+            <div>
+                <p class="text-4xl text-slate-400 mb-4">Prepare-se...</p>
+                <div id="countdown" class="text-9xl font-black text-cyan-400">3</div>
+            </div>
+        </div>
+
+        <!-- Tela 4: Teste -->
+        <div id="testScreen" class="screen w-full h-screen flex-col items-center justify-center">
+            <div class="w-full max-w-4xl absolute top-0 p-4">
+                <div class="w-full bg-slate-700 rounded-full h-2.5"><div id="progressBar" class="bg-cyan-500 h-2.5 rounded-full" style="width: 0%"></div></div>
+            </div>
+            <div id="feedback-border" class="w-full h-full flex items-center justify-center">
+                <div id="stimulus" class="text-9xl md:text-[12rem] font-black tracking-wider text-slate-200"></div>
+            </div>
+            <div class="absolute bottom-8 text-slate-500 text-sm">Pressione ESPAÇO ou TOQUE NA TELA para todas as letras, exceto "X"</div>
+        </div>
+
+        <!-- Tela 5: Resultados -->
+        <div id="resultsScreen" class="screen w-full max-w-4xl">
+            <div class="bg-slate-800 p-6 md:p-8 rounded-xl shadow-2xl w-full">
+                <h1 class="text-3xl font-bold mb-2 text-center text-green-400">Teste Concluído!</h1>
+                <p class="text-center text-slate-400 mb-6">Resultados para: <strong id="resultsParticipantId" class="text-cyan-400"></strong></p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="bg-slate-700/50 p-6 rounded-lg">
+                        <h2 class="font-bold text-xl mb-4 text-cyan-400">Métricas Principais</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                           <div class="bg-slate-800 p-4 rounded-lg"><p class="text-slate-400 text-sm">Omissões</p><p class="text-3xl font-bold text-red-400" id="omissions">0</p><p class="text-xs text-slate-500 mt-1">Desatenção</p></div>
+                           <div class="bg-slate-800 p-4 rounded-lg"><p class="text-slate-400 text-sm">Comissões</p><p class="text-3xl font-bold text-yellow-400" id="commissions">0</p><p class="text-xs text-slate-500 mt-1">Impulsividade</p></div>
+                           <div class="bg-slate-800 p-4 rounded-lg"><p class="text-slate-400 text-sm">TR Médio</p><p class="text-3xl font-bold text-green-400" id="avgRT">0ms</p><p class="text-xs text-slate-500 mt-1">Velocidade</p></div>
+                           <div class="bg-slate-800 p-4 rounded-lg"><p class="text-slate-400 text-sm">Variabilidade TR</p><p class="text-3xl font-bold text-purple-400" id="stdRT">0ms</p><p class="text-xs text-slate-500 mt-1">Consistência</p></div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-700/50 p-6 rounded-lg">
+                        <h2 class="font-bold text-xl mb-4 text-cyan-400">Desempenho por Bloco</h2>
+                        <div id="blocks-grid" class="grid grid-cols-3 gap-2 text-center"></div>
+                        <p class="text-xs text-slate-500 mt-3 text-center">Compara erros de comissão (Com) e omissão (Om).</p>
+                    </div>
+                </div>
+                <div class="bg-slate-700/50 p-6 rounded-lg mt-4">
+                    <h2 class="font-bold text-xl mb-4 text-center text-cyan-400">Exportar Laudo</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button id="exportCsvBtn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 rounded-lg">CSV</button>
+                        <button id="exportJsonBtn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 rounded-lg">JSON</button>
+                        <button id="exportPdfBtn" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 rounded-lg">PDF</button>
+                    </div>
+                </div>
+                <button id="restartBtn" class="w-full mt-6 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-lg transition duration-300">Fazer Novo Teste</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURAÇÕES ---
+        const CONFIG = {
+            '3': { duration: 3, totalTrials: 80, targetProbability: 0.10, blocks: 1 },
+            '6': { duration: 6, totalTrials: 150, targetProbability: 0.10, blocks: 2 },
+            '14': { duration: 14, totalTrials: 360, targetProbability: 0.10, blocks: 3 },
+            targetLetter: 'X',
+            ISIs: [1000, 2000, 4000],
+            stimulusDuration: 250,
+            letters: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'S', 'T', 'V', 'W', 'Y', 'Z']
+        };
+
+        // --- ESTADO ---
+        let state = {
+            participantId: '',
+            testConfig: {},
+            currentTrial: 0,
+            stimuli: [],
+            responses: [],
+            summaryResults: {},
+            stimulusStartTime: null,
+            isWaitingForResponse: false,
+            testTimeoutId: null
+        };
+        
+        // --- ELEMENTOS DOM ---
+        const screens = {
+            setup: document.getElementById('setupScreen'),
+            instructions: document.getElementById('instructionsScreen'),
+            countdown: document.getElementById('countdownScreen'),
+            test: document.getElementById('testScreen'),
+            results: document.getElementById('resultsScreen')
+        };
+        const elements = {
+            participantIdInput: document.getElementById('participantId'),
+            durationButtons: document.querySelectorAll('.duration-btn'),
+            startBtn: document.getElementById('startBtn'),
+            restartBtn: document.getElementById('restartBtn'),
+            participantIdText: document.getElementById('participantIdText'),
+            durationText: document.getElementById('durationText'),
+            countdown: document.getElementById('countdown'),
+            progressBar: document.getElementById('progressBar'),
+            stimulus: document.getElementById('stimulus'),
+            feedbackBorder: document.getElementById('feedback-border'),
+            // Resultados
+            resultsParticipantId: document.getElementById('resultsParticipantId'),
+            omissions: document.getElementById('omissions'),
+            commissions: document.getElementById('commissions'),
+            avgRT: document.getElementById('avgRT'),
+            stdRT: document.getElementById('stdRT'),
+            blocksGrid: document.getElementById('blocks-grid'),
+            // Exportação
+            exportCsvBtn: document.getElementById('exportCsvBtn'),
+            exportJsonBtn: document.getElementById('exportJsonBtn'),
+            exportPdfBtn: document.getElementById('exportPdfBtn'),
+        };
+
+        // --- LÓGICA ---
+        function showScreen(screenName) {
+            Object.values(screens).forEach(screen => screen.classList.remove('active'));
+            screens[screenName].classList.add('active');
+        }
+
+        function validateSetup() {
+            const id = elements.participantIdInput.value.trim();
+            const enabled = id.length > 0;
+            elements.durationButtons.forEach(btn => btn.disabled = !enabled);
+        }
+
+        function selectDuration(duration) {
+            state.participantId = elements.participantIdInput.value.trim();
+            state.testConfig = CONFIG[duration];
+            elements.participantIdText.textContent = state.participantId;
+            elements.durationText.textContent = `${state.testConfig.duration} minutos`;
+            showScreen('instructions');
+        }
+
+        function startCountdown() {
+            showScreen('countdown');
+            let count = 3;
+            elements.countdown.textContent = count;
+            const interval = setInterval(() => {
+                count--;
+                if (count > 0) elements.countdown.textContent = count;
+                else {
+                    clearInterval(interval);
+                    runTest();
+                }
+            }, 1000);
+        }
+        
+        function generateStimuli() {
+            const { totalTrials, targetProbability } = state.testConfig;
+            const { targetLetter, letters, ISIs } = CONFIG;
+            const stimuli = [];
+            const numTargets = Math.floor(totalTrials * targetProbability);
+
+            for (let i = 0; i < numTargets; i++) stimuli.push({ letter: targetLetter, isTarget: true, isi: ISIs[Math.floor(Math.random() * ISIs.length)] });
+            for (let i = 0; i < totalTrials - numTargets; i++) stimuli.push({ letter: letters[Math.floor(Math.random() * letters.length)], isTarget: false, isi: ISIs[Math.floor(Math.random() * ISIs.length)] });
+            
+            return stimuli.sort(() => Math.random() - 0.5);
+        }
+
+        function runTest() {
+            state.currentTrial = 0;
+            state.responses = [];
+            state.stimuli = generateStimuli();
+            elements.progressBar.style.width = '0%';
+            showScreen('test');
+            setTimeout(showNextStimulus, 1000);
+        }
+
+        function showNextStimulus() {
+            if (state.currentTrial >= state.testConfig.totalTrials) {
+                endTest();
+                return;
+            }
+
+            if (state.currentTrial > 0 && state.isWaitingForResponse) {
+                recordResponse(false, null);
+            }
+            
+            const currentStimulus = state.stimuli[state.currentTrial];
+            elements.stimulus.textContent = currentStimulus.letter;
+            elements.stimulus.style.opacity = 1;
+            elements.progressBar.style.width = `${((state.currentTrial + 1) / state.testConfig.totalTrials) * 100}%`;
+            
+            state.stimulusStartTime = Date.now();
+            state.isWaitingForResponse = true;
+
+            setTimeout(() => { elements.stimulus.style.opacity = 0; }, CONFIG.stimulusDuration);
+            state.testTimeoutId = setTimeout(() => { state.currentTrial++; showNextStimulus(); }, currentStimulus.isi);
+        }
+
+        function recordResponse(responded, reactionTime) {
+            if (!state.isWaitingForResponse) return;
+            state.isWaitingForResponse = false;
+            const stimulus = state.stimuli[state.currentTrial];
+            const responseType = getResponseType(stimulus.isTarget, responded);
+            state.responses.push({ trial: state.currentTrial + 1, stimulus: stimulus.letter, isTarget: stimulus.isTarget, responded, reactionTime, type: responseType });
+            if (responseType === 'correct' && responded) {
+                elements.feedbackBorder.style.boxShadow = 'inset 0 0 20px rgba(56, 189, 248, 0.5)';
+                setTimeout(() => { elements.feedbackBorder.style.boxShadow = 'none'; }, 200);
+            }
+        }
+        
+        function getResponseType(isTarget, responded) {
+            if (isTarget && responded) return 'commission';
+            if (!isTarget && !responded) return 'omission';
+            if (isTarget && !responded) return 'correct_rejection';
+            if (!isTarget && responded) return 'correct_hit';
+            return 'unknown';
+        }
+
+        function handleKeyPress(e) {
+            if (e.code === 'Space' && screens.test.classList.contains('active') && state.isWaitingForResponse) {
+                e.preventDefault();
+                recordResponse(true, Date.now() - state.stimulusStartTime);
+            }
+        }
+
+        function handleTouch(e) {
+            if (screens.test.classList.contains('active') && state.isWaitingForResponse) {
+                e.preventDefault();
+                recordResponse(true, Date.now() - state.stimulusStartTime);
+            }
+        }
+
+        function endTest() {
+            clearTimeout(state.testTimeoutId);
+            calculateAndShowResults();
+            showScreen('results');
+        }
+
+        function calculateAndShowResults() {
+            const omissions = state.responses.filter(r => r.type === 'omission').length;
+            const commissions = state.responses.filter(r => r.type === 'commission').length;
+            const validRTs = state.responses.filter(r => r.type === 'correct_hit').map(r => r.reactionTime);
+            const avgRT = validRTs.length > 0 ? Math.round(validRTs.reduce((a, b) => a + b, 0) / validRTs.length) : 0;
+            const variance = validRTs.length > 0 ? validRTs.reduce((sum, rt) => sum + Math.pow(rt - avgRT, 2), 0) / validRTs.length : 0;
+            const stdRT = Math.round(Math.sqrt(variance));
+
+            state.summaryResults = { omissions, commissions, avgRT, stdRT, blockStats: [] };
+
+            elements.omissions.textContent = omissions;
+            elements.commissions.textContent = commissions;
+            elements.avgRT.textContent = `${avgRT}ms`;
+            elements.stdRT.textContent = `${stdRT}ms`;
+            elements.resultsParticipantId.textContent = state.participantId;
+
+            const { totalTrials, blocks } = state.testConfig;
+            const blockSize = Math.floor(totalTrials / blocks);
+            elements.blocksGrid.innerHTML = '';
+            for (let i = 0; i < blocks; i++) {
+                const start = i * blockSize;
+                const end = start + blockSize;
+                const blockResponses = state.responses.slice(start, end);
+                const blockCommissions = blockResponses.filter(r => r.type === 'commission').length;
+                const blockOmissions = blockResponses.filter(r => r.type === 'omission').length;
+                state.summaryResults.blockStats.push({ block: i + 1, commissions: blockCommissions, omissions: blockOmissions });
+                elements.blocksGrid.innerHTML += `<div class="bg-slate-800 p-2 rounded"><p class="text-slate-400 text-xs">Bloco ${i+1}</p><p class="font-bold text-sm">Com: ${blockCommissions}, Om: ${blockOmissions}</p></div>`;
+            }
+        }
+
+        // --- FUNÇÕES DE EXPORTAÇÃO ---
+        function getFilename() {
+            return `CPT_Laudo_${state.participantId.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}`;
+        }
+
+        function exportCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += `Laudo CPT - Participante: ${state.participantId}\n`;
+            csvContent += `Data: ${new Date().toLocaleString()}\n`;
+            csvContent += `Duração do Teste: ${state.testConfig.duration} minutos\n\n`;
+            csvContent += "Resumo dos Resultados\n";
+            csvContent += `Omissões,${state.summaryResults.omissions}\n`;
+            csvContent += `Comissões,${state.summaryResults.commissions}\n`;
+            csvContent += `Tempo de Reação Médio (ms),${state.summaryResults.avgRT}\n`;
+            csvContent += `Variabilidade TR (ms),${state.summaryResults.stdRT}\n\n`;
+            csvContent += "Dados Brutos\n";
+            csvContent += "Trial,Estímulo,É Alvo,Respondeu,Tempo de Reação (ms),Tipo de Resposta\n";
+            state.responses.forEach(r => {
+                csvContent += `${r.trial},${r.stimulus},${r.isTarget},${r.responded},${r.reactionTime || ''},${r.type}\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `${getFilename()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportJSON() {
+            const data = {
+                participantId: state.participantId,
+                testDate: new Date().toISOString(),
+                testConfig: state.testConfig,
+                summaryResults: state.summaryResults,
+                rawData: state.responses
+            };
+            const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
+            const link = document.createElement("a");
+            link.href = jsonString;
+            link.download = `${getFilename()}.json`;
+            link.click();
+        }
+
+        function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const summary = state.summaryResults;
+            const rawData = state.responses;
+
+            doc.setFontSize(18);
+            doc.text("Laudo - Teste de Desempenho Contínuo (CPT)", 14, 22);
+            doc.setFontSize(11);
+            doc.text(`Participante: ${state.participantId}`, 14, 32);
+            doc.text(`Data: ${new Date().toLocaleString()}`, 14, 38);
+            doc.text(`Duração do Teste: ${state.testConfig.duration} minutos`, 14, 44);
+
+            doc.autoTable({
+                startY: 55,
+                head: [['Métrica', 'Resultado']],
+                body: [
+                    ['Omissões (Desatenção)', summary.omissions],
+                    ['Comissões (Impulsividade)', summary.commissions],
+                    ['Tempo de Reação Médio', `${summary.avgRT} ms`],
+                    ['Variabilidade do TR (Consistência)', `${summary.stdRT} ms`],
+                ],
+                theme: 'grid'
+            });
+
+            const finalY = doc.autoTable.previous.finalY;
+
+            doc.autoTable({
+                startY: finalY + 10,
+                head: [['Trial', 'Estímulo', 'Alvo', 'Resposta', 'TR (ms)', 'Tipo']],
+                body: rawData.map(r => [r.trial, r.stimulus, r.isTarget ? 'Sim' : 'Não', r.responded ? 'Sim' : 'Não', r.reactionTime || '-', r.type]),
+                theme: 'striped',
+                headStyles: { fillColor: [41, 128, 185] }
+            });
+            
+            doc.save(`${getFilename()}.pdf`);
+        }
+        
+        // --- EVENT LISTENERS ---
+        elements.participantIdInput.addEventListener('input', validateSetup);
+        elements.durationButtons.forEach(button => button.addEventListener('click', (e) => selectDuration(e.target.dataset.duration)));
+        elements.startBtn.addEventListener('click', startCountdown);
+        elements.restartBtn.addEventListener('click', () => { 
+            elements.participantIdInput.value = '';
+            validateSetup();
+            showScreen('setup');
+        });
+        document.addEventListener('keydown', handleKeyPress);
+        screens.test.addEventListener('touchstart', handleTouch);
+        elements.exportCsvBtn.addEventListener('click', exportCSV);
+        elements.exportJsonBtn.addEventListener('click', exportJSON);
+        elements.exportPdfBtn.addEventListener('click', exportPDF);
+
+    </script>
+</body>
+</html>
